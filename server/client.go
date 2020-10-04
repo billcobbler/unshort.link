@@ -24,13 +24,15 @@ var (
 	metaRedirectRegex *regexp.Regexp
 )
 
+const MAX_PARAMETER_COUNT = 15
+
 func init() {
 	hClient = http.Client{
 		Timeout: 3 * time.Second,
 	}
 
 	metaRedirectRegex = regexp.MustCompile(`<.*?(?:(?:http-equiv="refresh".*?content=".*?(?:url|URL)=(.*?)")|(?:content=".*?(?:url|URL)=(.*?)".*?http-equiv="refresh")).*?>`)
-	badParams = []string{"utm_source", "utm_medium", "utm_term", "utm_content", "utm_campaign", "utm_reader", "utm_place", "utm_userid", "utm_cid", "utm_name", "utm_pubreferrer", "utm_swu", "utm_viz_id", "ga_source", "ga_medium", "ga_term", "ga_content", "ga_campaign", "ga_place", "yclid", "_openstat", "fb_action_ids", "fb_action_types", "fb_ref", "fb_source", "action_object_map", "action_type_map", "action_ref_map", "gs_l", "pd_rd_@amazon.", "_encoding@amazon.", "psc@amazon.", "ved@google.", "ei@google.", "sei@google.", "gws_rd@google.", "cvid@bing.com", "form@bing.com", "sk@bing.com", "sp@bing.com", "sc@bing.com", "qs@bing.com", "pq@bing.com", "feature@youtube.com", "gclid@youtube.com", "kw@youtube.com", "$/ref@amazon.", "_hsenc", "mkt_tok", "hmb_campaign", "hmb_medium", "hmb_source", "source@sourceforge.net", "position@sourceforge.net", "callback@bilibili.com", "elqTrackId", "elqTrack", "assetType", "assetId", "recipientId", "campaignId", "siteId", "tag@amazon.", "ref_@amazon.", "pf_rd_@amazon.", "spm@.aliexpress.com", "scm@.aliexpress.com", "aff_platform", "aff_trace_key", "terminal_id", "_hsmi", "fbclid", "spReportId", "spJobID", "spUserID", "spMailingID", "utm_mailing", "utm_brand", "CNDID", "mbid", "trk", "trkCampaign", "sc_campaign", "sc_channel", "sc_content", "sc_medium", "sc_outcome", "sc_geo", "sc_country"}
+	badParams = []string{"feature=youtu.be", "utm_source", "utm_medium", "utm_term", "utm_content", "utm_campaign", "utm_reader", "utm_place", "utm_userid", "utm_cid", "utm_name", "utm_pubreferrer", "utm_swu", "utm_viz_id", "ga_source", "ga_medium", "ga_term", "ga_content", "ga_campaign", "ga_place", "yclid", "_openstat", "fb_action_ids", "fb_action_types", "fb_ref", "fb_source", "action_object_map", "action_type_map", "action_ref_map", "gs_l", "pd_rd_@amazon.", "_encoding@amazon.", "psc@amazon.", "ved@google.", "ei@google.", "sei@google.", "gws_rd@google.", "cvid@bing.com", "form@bing.com", "sk@bing.com", "sp@bing.com", "sc@bing.com", "qs@bing.com", "pq@bing.com", "feature@youtube.com", "gclid@youtube.com", "kw@youtube.com", "$/ref@amazon.", "_hsenc", "mkt_tok", "hmb_campaign", "hmb_medium", "hmb_source", "source@sourceforge.net", "position@sourceforge.net", "callback@bilibili.com", "elqTrackId", "elqTrack", "assetType", "assetId", "recipientId", "campaignId", "siteId", "tag@amazon.", "ref_@amazon.", "pf_rd_@amazon.", "spm@.aliexpress.com", "scm@.aliexpress.com", "aff_platform", "aff_trace_key", "terminal_id", "_hsmi", "fbclid", "spReportId", "spJobID", "spUserID", "spMailingID", "utm_mailing", "utm_brand", "CNDID", "mbid", "trk", "trkCampaign", "sc_campaign", "sc_channel", "sc_content", "sc_medium", "sc_outcome", "sc_geo", "sc_country", "ocid", "pd_rd_r@amazon_encoding", "pd_rd_w@amazon.", "pd_rd_wg@amazon."}
 }
 
 func getUrl(inUrl *url.URL) (*db.UnShortUrl, error) {
@@ -58,15 +60,14 @@ func getUrl(inUrl *url.URL) (*db.UnShortUrl, error) {
 
 	// Remove known tracking parameter e.g. utm_source
 	queryParams = removeKnownBadParams(queryParams)
-
 	queryParamSet := combinations(queryParams)
 
 	wg := sync.WaitGroup{}
 	foundChan := make(chan string)
-	breakCtx, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
+	breakCtx, cancelFunc := context.WithTimeout(context.Background(), 3*time.Second)
 	rateLimitChan := make(chan bool, 5)
 	for k, parameters := range queryParamSet {
-		if k >= 15 {
+		if k >= MAX_PARAMETER_COUNT {
 			break
 		}
 
@@ -185,6 +186,9 @@ func combinations(set []string) (subsets subsets) {
 		}
 		// add subset to subsets
 		subsets = append(subsets, subset)
+		if len(subsets) >= MAX_PARAMETER_COUNT {
+			break
+		}
 	}
 
 	subsets = append(subsets, []string{})

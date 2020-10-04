@@ -38,35 +38,37 @@ func main() {
 	go blacklist.NewLoader(blacklistUrls, blacklistSource, blacklistSyncInterval).StartSync()
 
 	handler := func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == "" || req.URL.Path == "/" || req.URL.Path == "/d/" || req.URL.Path == "/d" {
+		switch path := req.URL.Path; {
+		case path == "" || path == "/" ||
+			path == "/d/" || path == "/d" ||
+			path == "/api/" || path == "/api" ||
+			path == "/nb/" || path == "/nb":
 			handleIndex(rw, true)
-			return
-		}
-		if strings.HasPrefix(req.URL.Path, "favicon.ico") {
+		case path == "/about":
+			browserExtension := false
+			if req.URL.Query().Get("extension") == "true" {
+				browserExtension = true
+			}
+			handleAbout(rw, browserExtension)
+		case strings.HasPrefix(path, "favicon.ico"):
 			rw.WriteHeader(http.StatusNotFound)
-			return
-		}
-		if strings.HasPrefix(req.URL.Path, "/providers") {
+		case strings.HasPrefix(path, "/providers"):
 			rw.Header().Set("Access-Control-Allow-Origin", "*")
 			rw.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 			rw.Header().Set("Access-Control-Allow-Headers", "*")
 			handleProviders(rw)
-			return
-		}
-		if strings.HasPrefix(req.URL.Path, "/api/") {
+		case strings.HasPrefix(path, "/api/"):
 			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/api")
-			handleUnShort(rw, req, false, true, false, blacklistSource)
-			return
-		}
-		if strings.HasPrefix(req.URL.Path, "/d/") {
-			// Render loading.html
-
-			renderLoading(rw)
+			handleUnShort(rw, req, false, true, true, blacklistSource)
+		case strings.HasPrefix(path, "/d/"):
 			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/d")
 			handleUnShort(rw, req, false, false, true, blacklistSource)
-			return
+		case strings.HasPrefix(path, "/nb/"):
+			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/nb")
+			handleUnShort(rw, req, false, false, false, blacklistSource)
+		default:
+			handleUnShort(rw, req, true, false, true, blacklistSource)
 		}
-		handleUnShort(rw, req, true, false, false, blacklistSource)
 	}
 
 	http.Handle("/static/", http.FileServer(_escFS(useLocal)))
